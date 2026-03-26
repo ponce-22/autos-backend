@@ -1,39 +1,55 @@
-require('dotenv').config();
+// Solo cargar .env en desarrollo local
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 
 const app = express();
 app.use(express.json());
-app.use(cors({
-  origin: ['https://autos-frontend-omega.vercel.app', 'http://localhost:5173']
-}));
+app.use(cors());
 
-// --- MODELOS ---
+// --- 1. MODELOS ---
 
 const Auto = mongoose.model('Auto', new mongoose.Schema({
-    nombre: String, precio: Number, caracteristicas: String,
-    imagen: String, km: String, transmision: String,
-    color: String, duenos: String, motor: String, año: Number,
+    nombre: String,
+    precio: Number,
+    caracteristicas: String,
+    imagen: String,
+    km: String,
+    transmision: String,
+    color: String,
+    duenos: String,
+    motor: String,
+    año: Number,
 }), 'autos');
 
 const Cita = mongoose.model('Cita', new mongoose.Schema({
-    autoNombre: String, nombre: String, telefono: String,
-    fecha: String, createdAt: { type: Date, default: Date.now }
+    autoNombre: String,
+    nombre: String,
+    telefono: String,
+    fecha: String,
+    createdAt: { type: Date, default: Date.now }
 }), 'citas');
 
 const Usuario = mongoose.model('Usuario', new mongoose.Schema({
-    nombre: String, correo: String,
+    nombre: String,
+    correo: { type: String },
     contrasena: { type: String, default: 'google' },
-    foto: String, loginAt: { type: Date, default: Date.now }
+    foto: String,
+    loginAt: { type: Date, default: Date.now }
 }), 'usuarios');
 
-// --- DATOS INICIALES ---
+// --- 2. CATÁLOGO DE 20 AUTOS USADOS ---
 
 const actualizarInventario = async () => {
     try {
         const count = await Auto.countDocuments();
-        if (count > 0) return; // No sobrescribir si ya hay autos
+        if (count > 0) {
+            console.log(`✅ Ya hay ${count} autos en la base de datos`);
+            return;
+        }
         const autos = [
             { nombre: "Nissan March 2018", año: 2018, precio: 175000, caracteristicas: "Hatchback compacto, excelente para ciudad, bajo consumo de combustible.", km: "52,000 km", transmision: "Manual", color: "Azul", duenos: "1 dueño", motor: "1.6L 4 cilindros", imagen: "https://cdn.imagin.studio/getimage?customer=img&make=nissan&modelFamily=micra&modelYear=2018&paintId=color-blue" },
             { nombre: "VW Jetta 2016", año: 2016, precio: 195000, caracteristicas: "Sedán alemán, confort y tecnología, suspensión independiente.", km: "88,000 km", transmision: "Automático", color: "Gris Plata", duenos: "1 dueño", motor: "2.0L 4 cilindros", imagen: "https://cdn.imagin.studio/getimage?customer=img&make=volkswagen&modelFamily=jetta&modelYear=2016&paintId=color-silver" },
@@ -59,78 +75,111 @@ const actualizarInventario = async () => {
         await Auto.insertMany(autos);
         console.log(`✅ ${autos.length} autos cargados`);
     } catch (error) {
-        console.error("❌ Error al cargar autos:", error);
+        console.error("❌ Error al actualizar:", error);
     }
 };
 
-// --- RUTAS AUTOS ---
+// --- 3. RUTAS DE AUTOS ---
 
 app.get('/api/autos', async (req, res) => {
-    try { res.json(await Auto.find()); }
-    catch (e) { res.status(500).json({ mensaje: 'Error' }); }
+    try {
+        const listaAutos = await Auto.find();
+        res.json(listaAutos);
+    } catch (error) {
+        res.status(500).json({ mensaje: 'Error al obtener autos' });
+    }
 });
 
 app.post('/api/autos', async (req, res) => {
     try {
-        const auto = new Auto(req.body);
-        await auto.save();
-        res.status(201).json({ mensaje: 'Auto agregado', auto });
-    } catch (e) { res.status(400).json({ mensaje: 'Error al agregar' }); }
+        const nuevoAuto = new Auto(req.body);
+        await nuevoAuto.save();
+        res.status(201).json({ mensaje: "Auto registrado con éxito" });
+    } catch (error) {
+        res.status(400).json({ mensaje: "Error al registrar" });
+    }
 });
 
+// ✅ NUEVA: Editar auto
 app.put('/api/autos/:id', async (req, res) => {
     try {
         const auto = await Auto.findByIdAndUpdate(req.params.id, req.body, { new: true });
         res.json({ mensaje: 'Auto actualizado', auto });
-    } catch (e) { res.status(400).json({ mensaje: 'Error al actualizar' }); }
+    } catch (error) {
+        res.status(400).json({ mensaje: 'Error al actualizar' });
+    }
 });
 
+// ✅ NUEVA: Eliminar auto
 app.delete('/api/autos/:id', async (req, res) => {
     try {
         await Auto.findByIdAndDelete(req.params.id);
         res.json({ mensaje: 'Auto eliminado' });
-    } catch (e) { res.status(400).json({ mensaje: 'Error al eliminar' }); }
+    } catch (error) {
+        res.status(400).json({ mensaje: 'Error al eliminar' });
+    }
 });
 
-// --- RUTAS CITAS ---
+// --- 4. RUTAS DE CITAS ---
 
 app.post('/api/citas', async (req, res) => {
     try {
-        const cita = new Cita(req.body);
-        await cita.save();
+        const nuevaCita = new Cita(req.body);
+        await nuevaCita.save();
+        console.log("✅ Cita guardada:", nuevaCita);
         res.status(201).json({ mensaje: 'Cita agendada exitosamente' });
-    } catch (e) { res.status(500).json({ mensaje: 'Error al guardar cita' }); }
+    } catch (error) {
+        console.error("❌ Error al guardar cita:", error);
+        res.status(500).json({ mensaje: 'Error al guardar la cita' });
+    }
 });
 
 app.get('/api/citas', async (req, res) => {
-    try { res.json(await Cita.find().sort({ createdAt: -1 })); }
-    catch (e) { res.status(500).json({ mensaje: 'Error' }); }
+    try {
+        const citas = await Cita.find().sort({ createdAt: -1 });
+        res.json(citas);
+    } catch (error) {
+        res.status(500).json({ mensaje: 'Error al obtener citas' });
+    }
 });
 
-// --- RUTAS USUARIOS ---
+// --- 5. RUTAS DE USUARIOS ---
 
 app.post('/api/usuarios', async (req, res) => {
     try {
         const { nombre, correo, foto } = req.body;
         const existente = await Usuario.findOne({ correo });
-        if (existente) return res.status(200).json({ mensaje: 'Ya registrado' });
-        const u = new Usuario({ nombre, correo, foto });
-        await u.save();
-        res.status(201).json({ mensaje: 'Usuario registrado' });
-    } catch (e) { res.status(500).json({ mensaje: 'Error' }); }
+        if (existente) {
+            return res.status(200).json({ mensaje: 'Usuario ya registrado', usuario: existente });
+        }
+        const nuevoUsuario = new Usuario({ nombre, correo, foto });
+        await nuevoUsuario.save();
+        console.log("✅ Nuevo usuario guardado:", correo);
+        res.status(201).json({ mensaje: 'Usuario registrado', usuario: nuevoUsuario });
+    } catch (error) {
+        console.error("❌ Error al guardar usuario:", error);
+        res.status(500).json({ mensaje: 'Error al guardar usuario' });
+    }
 });
 
 app.get('/api/usuarios', async (req, res) => {
-    try { res.json(await Usuario.find().sort({ loginAt: -1 })); }
-    catch (e) { res.status(500).json({ mensaje: 'Error' }); }
+    try {
+        const usuarios = await Usuario.find().sort({ loginAt: -1 });
+        res.json(usuarios);
+    } catch (error) {
+        res.status(500).json({ mensaje: 'Error al obtener usuarios' });
+    }
 });
 
-// --- CONEXIÓN ---
+// --- 6. CONEXIÓN ---
 
-mongoose.connect(process.env.MONGO_URI)
+mongoose.connect(process.env.MONGO_URL)
     .then(() => {
         console.log("✅ Conectado a Atlas");
         actualizarInventario();
-        app.listen(5000, () => console.log('🚀 Servidor en http://localhost:5000'));
+        const port = process.env.PORT || 5000;
+        app.listen(port, () => console.log(`🚀 Servidor en http://localhost:${port}`));
     })
-    .catch(e => console.error("❌ Error:", e));
+    .catch((error) => {
+        console.error("❌ Error al conectar:", error);
+    });
