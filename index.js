@@ -249,7 +249,7 @@ app.get('/api/usuarios', async (req, res) => {
 
 // --- 6. CONEXIÓN ---
 
-mongoose.connect(process.env.MONGO_URI)
+mongoose.connect(process.env.MONGO_URL)
     .then(() => {
         console.log("✅ Conectado a Atlas");
         actualizarInventario();
