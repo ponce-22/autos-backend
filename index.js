@@ -253,7 +253,8 @@ mongoose.connect(process.env.MONGO_URL)
     .then(() => {
         console.log("✅ Conectado a Atlas");
         actualizarInventario();
-        app.listen(5000, () => console.log('🚀 Servidor en http://localhost:5000'));
+        const port = process.env.PORT || 5000;
+        app.listen(port, () => console.log(`🚀 Servidor en http://localhost:${port}`));
     })
     .catch((error) => {
         console.error("❌ Error al conectar:", error);
